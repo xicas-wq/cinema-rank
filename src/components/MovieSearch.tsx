@@ -11,7 +11,8 @@ interface MovieSearchProps {
   existingMovieIds: Set<number>;
 }
 
-const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY || '';
+// TMDB search goes through our server-side proxy (/api/tmdb) so the API key is never exposed
+const TMDB_ENABLED = true;
 
 export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearchProps) {
   const [query, setQuery] = useState('');
@@ -33,8 +34,8 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
     // First search curated movies
     const curatedResults = searchCuratedMovies(query.trim());
 
-    if (TMDB_API_KEY) {
-      // Also search TMDB for full database
+    if (TMDB_ENABLED) {
+      // Search TMDB via server-side proxy (API key never exposed to client)
       try {
         const tmdbResults = await searchTMDB(query.trim());
         // Merge: curated first (they have our genre_ids), then TMDB results not in curated
@@ -105,7 +106,7 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && search()}
-              placeholder={TMDB_API_KEY ? "Search 900,000+ movies..." : "Search movies..."}
+              placeholder={TMDB_ENABLED ? "Search 900,000+ movies..." : "Search movies..."}
               className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-[#0e0e1a] border border-[#2a2a40] text-white placeholder-[#5e5e7a] focus:outline-none focus:border-[#6d5cff] focus:ring-2 focus:ring-[#6d5cff]/20 transition-all text-sm"
             />
           </div>
@@ -121,7 +122,7 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
             )}
           </button>
         </div>
-        {TMDB_API_KEY && (
+        {TMDB_ENABLED && (
           <div className="flex items-center gap-1.5 mt-2.5 text-[10px] text-[#5e5e7a]">
             <div className="w-1.5 h-1.5 rounded-full bg-[#22c584]" />
             Powered by TMDB — search any movie ever made
@@ -286,7 +287,7 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
           </p>
           <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[#1a1a2a] border border-[#2a2a40] text-sm text-[#5e5e7a]">
             <div className="w-2 h-2 rounded-full bg-[#22c584]" />
-            {TMDB_API_KEY ? '900,000+ movies available via TMDB' : `${UNIQUE_CURATED_MOVIES.length} movies available`}
+            {TMDB_ENABLED ? '900,000+ movies available via TMDB' : `${UNIQUE_CURATED_MOVIES.length} movies available`}
           </div>
         </div>
       )}
