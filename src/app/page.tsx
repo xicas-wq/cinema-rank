@@ -161,116 +161,106 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="relative z-20">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#7c6cf0]/5 to-transparent pointer-events-none" />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between relative">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7c6cf0] to-[#a599ff] flex items-center justify-center shadow-lg shadow-[#7c6cf0]/20">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-                <path d="M4 11v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8" />
-                <path d="m4 11 3.5-6A1 1 0 0 1 8.37 4.5h7.26a1 1 0 0 1 .87.5L20 11" />
-                <path d="M8 11V8" />
-                <path d="M16 11V8" />
-                <path d="M12 11V4.5" />
+    <div className="min-h-screen flex flex-col bg-[#06060c]">
+      {/* Combined header + nav - single sticky bar */}
+      <header className="sticky top-0 z-30 glass-nav">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+          {/* Top row: logo + settings */}
+          <div className="flex items-center justify-between py-4 border-b border-white/[0.05]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#6d5cff] to-[#8b7fff] flex items-center justify-center shadow-lg shadow-[#6d5cff]/25 shrink-0">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+                  <path d="M4 11v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8" />
+                  <path d="m4 11 3.5-6A1 1 0 0 1 8.37 4.5h7.26a1 1 0 0 1 .87.5L20 11" />
+                  <path d="M8 11V8M16 11V8M12 11V4.5" />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-lg font-extrabold tracking-tight text-white leading-none">
+                  CinemaRank
+                </h1>
+                <p className="text-[11px] text-[#5e5e7a] font-medium">
+                  Personal Movie Rankings
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowSettings(!showSettings)}
+              className={`p-2.5 rounded-xl transition-all duration-200 ${
+                showSettings
+                  ? 'bg-[#6d5cff]/15 text-[#8b7fff]'
+                  : 'text-[#5e5e7a] hover:text-[#9494b0] hover:bg-white/[0.05]'
+              }`}
+              title="Settings"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
               </svg>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight text-[#f0f0f5]">
-                CinemaRank
-              </h1>
-              <p className="text-[11px] text-[#5c5c73] font-medium tracking-wide uppercase">
-                Personal Movie Rankings
-              </p>
-            </div>
+            </button>
           </div>
 
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className={`relative p-2.5 rounded-xl transition-all duration-200 ${
-              showSettings
-                ? 'bg-[#7c6cf0]/15 text-[#a599ff]'
-                : 'text-[#5c5c73] hover:text-[#8b8ba3] hover:bg-white/[0.03]'
-            }`}
-            title="Settings"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-            </svg>
-          </button>
+          {/* Bottom row: tabs */}
+          <div className="flex gap-0.5">
+            {tabs.map(tab => {
+              const count = getCount(tab.key);
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`relative flex items-center gap-2 px-4 py-3 text-sm font-semibold transition-all duration-200 ${
+                    isActive
+                      ? 'text-white'
+                      : 'text-[#5e5e7a] hover:text-[#9494b0] hover:bg-white/[0.03]'
+                  }`}
+                >
+                  <span className={`transition-colors ${isActive ? 'text-[#8b7fff]' : ''}`}>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                  {count !== undefined && count > 0 && (
+                    <span className={`badge ${
+                      isActive
+                        ? 'bg-[#6d5cff]/20 text-[#8b7fff]'
+                        : 'bg-white/[0.06] text-[#5e5e7a]'
+                    }`}>
+                      {count}
+                    </span>
+                  )}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-gradient-to-r from-[#6d5cff] to-[#8b7fff] rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
+      </header>
 
-        {/* Settings dropdown */}
-        {showSettings && (
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 pb-4 relative fade-in">
-            <div className="flex flex-wrap gap-2 p-3 rounded-xl glass-card">
-              <button
-                onClick={handleExport}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-sm text-[#8b8ba3] hover:text-[#f0f0f5] hover:bg-white/[0.06] transition-all"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+      {/* Settings panel (below header) */}
+      {showSettings && (
+        <div className="bg-[#0a0a14] border-b border-white/[0.06] fade-in">
+          <div className="max-w-6xl mx-auto px-5 sm:px-8 py-4">
+            <div className="flex flex-wrap gap-3">
+              <button onClick={handleExport} className="btn btn-ghost text-sm px-5 py-2.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
                 Export
               </button>
-              <button
-                onClick={handleImport}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] text-sm text-[#8b8ba3] hover:text-[#f0f0f5] hover:bg-white/[0.06] transition-all"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
+              <button onClick={handleImport} className="btn btn-ghost text-sm px-5 py-2.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
                 Import
               </button>
-              <button
-                onClick={handleClearAll}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/[0.03] border border-[#f87171]/20 text-sm text-[#f87171]/70 hover:text-[#f87171] hover:bg-[#f87171]/10 transition-all"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+              <button onClick={handleClearAll} className="btn btn-danger text-sm px-5 py-2.5">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                 Clear All
               </button>
             </div>
           </div>
-        )}
-      </header>
-
-      {/* Tab navigation */}
-      <nav className="sticky top-0 z-30 border-b border-white/[0.04]">
-        <div className="absolute inset-0 glass" />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 flex relative">
-          {tabs.map(tab => {
-            const count = getCount(tab.key);
-            const isActive = activeTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`relative flex items-center gap-2 px-4 py-3.5 text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? 'text-[#f0f0f5]'
-                    : 'text-[#5c5c73] hover:text-[#8b8ba3]'
-                }`}
-              >
-                <span className={isActive ? 'text-[#a599ff]' : ''}>{tab.icon}</span>
-                <span className="hidden sm:inline">{tab.label}</span>
-                {count !== undefined && count > 0 && (
-                  <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded-md min-w-[20px] text-center ${
-                    isActive
-                      ? 'bg-[#7c6cf0]/20 text-[#a599ff]'
-                      : 'bg-white/[0.04] text-[#5c5c73]'
-                  }`}>
-                    {count}
-                  </span>
-                )}
-                {isActive && (
-                  <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-gradient-to-r from-[#7c6cf0] to-[#a599ff] rounded-full" />
-                )}
-              </button>
-            );
-          })}
         </div>
-      </nav>
+      )}
 
       {/* Main content */}
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 sm:py-8">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-5 sm:px-8 py-8">
         <div className="fade-in">
           {activeTab === 'add' && (
             <MovieSearch onAddMovie={handleAddMovie} existingMovieIds={existingMovieIds} />
@@ -297,28 +287,20 @@ export default function Home() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-white/[0.03] py-6 mt-auto">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#5c5c73]">
+      <footer className="border-t border-white/[0.06] bg-[#0a0a14] py-6 mt-auto">
+        <div className="max-w-6xl mx-auto px-5 sm:px-8">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#5e5e7a]">
             <p>
               Powered by the{' '}
-              <a
-                href="https://en.wikipedia.org/wiki/Bradley%E2%80%93Terry_model"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#8b8ba3] hover:text-[#a599ff] transition-colors"
-              >
+              <a href="https://en.wikipedia.org/wiki/Bradley%E2%80%93Terry_model" target="_blank" rel="noopener noreferrer"
+                className="text-[#9494b0] hover:text-[#8b7fff] transition-colors underline underline-offset-2 decoration-white/10">
                 Bradley-Terry model
               </a>
             </p>
             <p>
               Movie data from{' '}
-              <a
-                href="https://www.themoviedb.org"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#8b8ba3] hover:text-[#a599ff] transition-colors"
-              >
+              <a href="https://www.themoviedb.org" target="_blank" rel="noopener noreferrer"
+                className="text-[#9494b0] hover:text-[#8b7fff] transition-colors underline underline-offset-2 decoration-white/10">
                 TMDB
               </a>
               {' '}&middot; All data stored locally
