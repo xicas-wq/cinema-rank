@@ -9,8 +9,6 @@ import { Comparison, Movie, MovieRating } from './types';
  * where p_i and p_j are the "strength" parameters for items i and j.
  *
  * We use iterative maximum likelihood estimation to find the strength parameters.
- * Starting from uniform strengths, we iteratively update each item's strength based on
- * the observed win/loss data until convergence.
  */
 
 const MAX_ITERATIONS = 100;
@@ -103,7 +101,6 @@ export function computeBradleyTerryRatings(
       }
 
       // New score: w_i / denomSum
-      // Add small epsilon to avoid zero scores for items that only lost
       const EPSILON = 0.01;
       const newScore = denomSum > 0 ? Math.max(w_i / denomSum, EPSILON) : DEFAULT_SCORE;
       newScores.set(id, newScore);
@@ -146,77 +143,145 @@ export function computeBradleyTerryRatings(
 }
 
 /**
+ * Get a canonical key for a pair of movie IDs (order-independent)
+ */
+function pairKey(a: number, b: number): string {
+  return a < b ? `${a}-${b}` : `${b}-${a}`;
+}
+
+/**
+ * Build a set of already-compared pair keys from comparisons
+ */
+function getComparedPairs(comparisons: Comparison[]): Set<string> {
+  const pairs = new Set<string>();
+  for (const c of comparisons) {
+    pairs.add(pairKey(c.winnerId, c.loserId));
+  }
+  return pairs;
+}
+
+/**
+ * Check if ranking is complete enough to stop.
+ * Returns { done: boolean, progress: number (0-1), reason: string }
+ */
+export function getRankingProgress(
+  movies: Movie[],
+  comparisons: Comparison[]
+): { done: boolean; progress: number; reason: string; totalPairs: number; comparedPairs: number } {
+  const n = movies.length;
+  if (n < 2) return { done: true, progress: 1, reason: 'Need at least 2 movies', totalPairs: 0, comparedPairs: 0 };
+
+  const totalPairs = n * (n - 1) / 2;
+  const comparedPairs = getComparedPairs(
+    comparisons.filter(c => {
+      const movieIds = new Set(movies.map(m => m.id));
+      return movieIds.has(c.winnerId) && movieIds.has(c.loserId);
+    })
+  ).size;
+
+  // For small lists (≤20 movies), we can compare all pairs
+  if (n <= 20) {
+    const progress = comparedPairs / totalPairs;
+    if (comparedPairs >= totalPairs) {
+      return { done: true, progress: 1, reason: 'All pairs compared!', totalPairs, comparedPairs };
+    }
+    return { done: false, progress, reason: `${comparedPairs}/${totalPairs} pairs compared`, totalPairs, comparedPairs };
+  }
+
+  // For larger lists, use N*log2(N) as target (enough for reliable ranking)
+  const target = Math.ceil(n * Math.log2(n) * 1.5);
+  const progress = Math.min(comparedPairs / target, 1);
+
+  if (comparedPairs >= target) {
+    return { done: true, progress: 1, reason: 'Ranking is reliable!', totalPairs, comparedPairs };
+  }
+
+  return { done: false, progress, reason: `${comparedPairs}/${target} comparisons for reliable ranking`, totalPairs, comparedPairs };
+}
+
+/**
  * Select the most informative pair of movies to compare next.
- * Uses uncertainty sampling: pick the pair whose outcome is most uncertain
- * (i.e., scores are closest together), with a bias toward movies with fewer comparisons.
+ *
+ * Key improvements:
+ * - NEVER repeats an already-compared pair (unless all pairs are done)
+ * - Prioritizes movies with fewer comparisons (coverage first)
+ * - Uses uncertainty sampling for informative pairs
+ * - Optional genre-aware matching (prefers same-genre pairs)
  */
 export function selectNextPair(
   movies: Movie[],
-  comparisons: Comparison[]
+  comparisons: Comparison[],
+  options?: { preferSameGenre?: boolean }
 ): [Movie, Movie] | null {
   if (movies.length < 2) return null;
 
-  const ratings = computeBradleyTerryRatings(movies, comparisons);
-  const ratingMap = new Map(ratings.map(r => [r.movieId, r]));
+  const movieIds = new Set(movies.map(m => m.id));
+  const relevantComps = comparisons.filter(c => movieIds.has(c.winnerId) && movieIds.has(c.loserId));
+  const comparedPairs = getComparedPairs(relevantComps);
 
-  // If we have fewer than 2 movies with any comparisons, just pick randomly
-  const comparedMovies = ratings.filter(r => r.comparisons > 0);
-
-  if (comparedMovies.length < 2 || comparisons.length < movies.length) {
-    // Prioritize movies with fewer comparisons
-    const sorted = [...ratings].sort((a, b) => a.comparisons - b.comparisons);
-
-    // Pick two least-compared movies, with some randomness
-    const pool = sorted.slice(0, Math.max(4, Math.ceil(sorted.length * 0.3)));
-    const shuffled = pool.sort(() => Math.random() - 0.5);
-
-    const first = shuffled[0];
-    let second = shuffled[1];
-
-    // Make sure we don't pick the same movie
-    if (first.movieId === second.movieId && shuffled.length > 2) {
-      second = shuffled[2];
-    }
-
-    return [first.movie, second.movie];
-  }
-
-  // Find the pair with the most uncertain outcome
-  let bestPair: [Movie, Movie] | null = null;
-  let bestScore = -Infinity;
-
-  // Sample pairs to avoid O(n^2) for large movie lists
-  const sampleSize = Math.min(ratings.length, 20);
-  const sampled = [...ratings].sort(() => Math.random() - 0.5).slice(0, sampleSize);
-
-  for (let i = 0; i < sampled.length; i++) {
-    for (let j = i + 1; j < sampled.length; j++) {
-      const a = sampled[i];
-      const b = sampled[j];
-
-      // Uncertainty: how close are the scores? (closer = more uncertain)
-      const p_a = a.score / (a.score + b.score);
-      const uncertainty = 1 - Math.abs(p_a - 0.5) * 2; // 1 = maximally uncertain, 0 = certain
-
-      // Bonus for movies with fewer comparisons
-      const compPenalty = 1 / (1 + Math.min(a.comparisons, b.comparisons) * 0.2);
-
-      const infoScore = uncertainty * 0.7 + compPenalty * 0.3;
-
-      if (infoScore > bestScore) {
-        bestScore = infoScore;
-        bestPair = [a.movie, b.movie];
+  // Build all possible uncompared pairs
+  const uncomparedPairs: [Movie, Movie][] = [];
+  for (let i = 0; i < movies.length; i++) {
+    for (let j = i + 1; j < movies.length; j++) {
+      const key = pairKey(movies[i].id, movies[j].id);
+      if (!comparedPairs.has(key)) {
+        uncomparedPairs.push([movies[i], movies[j]]);
       }
     }
   }
 
-  // Random tiebreak
-  if (bestPair && Math.random() < 0.15) {
-    const shuffled = [...movies].sort(() => Math.random() - 0.5);
-    return [shuffled[0], shuffled[1]];
+  // If all pairs have been compared, return null (ranking complete)
+  if (uncomparedPairs.length === 0) {
+    return null;
   }
 
-  return bestPair;
+  const ratings = computeBradleyTerryRatings(movies, relevantComps);
+  const ratingMap = new Map(ratings.map(r => [r.movieId, r]));
+
+  // Score each uncompared pair
+  const scoredPairs = uncomparedPairs.map(([a, b]) => {
+    const ratingA = ratingMap.get(a.id);
+    const ratingB = ratingMap.get(b.id);
+
+    if (!ratingA || !ratingB) return { pair: [a, b] as [Movie, Movie], score: Math.random() };
+
+    // Factor 1: Coverage — prefer movies with fewer comparisons (0 to 1, higher = more needed)
+    const minComps = Math.min(ratingA.comparisons, ratingB.comparisons);
+    const maxComps = Math.max(...ratings.map(r => r.comparisons), 1);
+    const coverageScore = 1 - (minComps / (maxComps + 1));
+
+    // Factor 2: Uncertainty — prefer pairs with similar scores (most informative)
+    let uncertaintyScore = 0.5; // default for uncompared movies
+    if (ratingA.comparisons > 0 && ratingB.comparisons > 0) {
+      const p_a = ratingA.score / (ratingA.score + ratingB.score);
+      uncertaintyScore = 1 - Math.abs(p_a - 0.5) * 2;
+    }
+
+    // Factor 3: Genre similarity — bonus for same-genre pairs
+    let genreBonus = 0;
+    if (options?.preferSameGenre && a.genre_ids?.length && b.genre_ids?.length) {
+      const shared = a.genre_ids.filter(g => b.genre_ids!.includes(g));
+      genreBonus = shared.length > 0 ? 0.2 : 0;
+    }
+
+    // Weighted combination: coverage most important early, uncertainty later
+    const totalComps = relevantComps.length;
+    const coverageWeight = totalComps < movies.length ? 0.7 : 0.3;
+    const uncertaintyWeight = totalComps < movies.length ? 0.3 : 0.7;
+
+    const score = coverageScore * coverageWeight + uncertaintyScore * uncertaintyWeight + genreBonus;
+
+    return { pair: [a, b] as [Movie, Movie], score };
+  });
+
+  // Sort by score descending, then pick from top candidates with slight randomness
+  scoredPairs.sort((a, b) => b.score - a.score);
+
+  // Pick randomly from top 3 candidates to avoid being too predictable
+  const topN = Math.min(3, scoredPairs.length);
+  const pick = scoredPairs[Math.floor(Math.random() * topN)];
+
+  return pick.pair;
 }
 
 /**

@@ -1,12 +1,12 @@
-import { CURATED_MOVIES, MOVIE_CATEGORIES, searchCuratedMovies, getMoviesByCategory, getRandomMovies } from '../lib/movie-database';
+import { UNIQUE_CURATED_MOVIES, MOVIE_CATEGORIES, searchCuratedMovies, getMoviesByCategory, getRandomMovies } from '../lib/movie-database';
 
 describe('Movie Database', () => {
   test('has a reasonable number of curated movies', () => {
-    expect(CURATED_MOVIES.length).toBeGreaterThanOrEqual(50);
+    expect(UNIQUE_CURATED_MOVIES.length).toBeGreaterThanOrEqual(50);
   });
 
   test('all movies have required fields', () => {
-    CURATED_MOVIES.forEach(movie => {
+    UNIQUE_CURATED_MOVIES.forEach(movie => {
       expect(movie.id).toBeDefined();
       expect(typeof movie.id).toBe('number');
       expect(movie.title).toBeDefined();
@@ -19,13 +19,13 @@ describe('Movie Database', () => {
   });
 
   test('all movie IDs are unique', () => {
-    const ids = CURATED_MOVIES.map(m => m.id);
+    const ids = UNIQUE_CURATED_MOVIES.map(m => m.id);
     const uniqueIds = new Set(ids);
     expect(uniqueIds.size).toBe(ids.length);
   });
 
   test('all category movies exist in curated list', () => {
-    const allIds = new Set(CURATED_MOVIES.map(m => m.id));
+    const allIds = new Set(UNIQUE_CURATED_MOVIES.map(m => m.id));
     for (const [category, ids] of Object.entries(MOVIE_CATEGORIES)) {
       for (const id of ids) {
         expect(allIds.has(id)).toBe(true);
@@ -86,7 +86,7 @@ describe('Movie Database', () => {
 
     test('returns all movies if count exceeds total', () => {
       const results = getRandomMovies(1000);
-      expect(results).toHaveLength(CURATED_MOVIES.length);
+      expect(results).toHaveLength(UNIQUE_CURATED_MOVIES.length);
     });
 
     test('returns different orderings (randomness check)', () => {

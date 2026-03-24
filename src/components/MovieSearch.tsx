@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { Movie } from '@/lib/types';
-import { CURATED_MOVIES, MOVIE_CATEGORIES, searchCuratedMovies, getMoviesByCategory } from '@/lib/movie-database';
+import { UNIQUE_CURATED_MOVIES, MOVIE_CATEGORIES, searchCuratedMovies, getMoviesByCategory } from '@/lib/movie-database';
 import PosterImage from './PosterImage';
 
 interface MovieSearchProps {
@@ -37,7 +37,7 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
     setActiveCategory('all');
     setSearched(true);
     setQuery('');
-    setResults([...CURATED_MOVIES]);
+    setResults([...UNIQUE_CURATED_MOVIES]);
   }, []);
 
   const addAll = useCallback(() => {
@@ -98,7 +98,7 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
                 : 'bg-[#1a1a2a] text-[#9494b0] hover:text-white hover:bg-[#222235] border border-[#2a2a40]'
             }`}
           >
-            All ({CURATED_MOVIES.length})
+            All ({UNIQUE_CURATED_MOVIES.length})
           </button>
           {categories.map(cat => (
             <button
@@ -234,7 +234,7 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
           </p>
           <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[#1a1a2a] border border-[#2a2a40] text-sm text-[#5e5e7a]">
             <div className="w-2 h-2 rounded-full bg-[#22c584]" />
-            {CURATED_MOVIES.length} movies available
+            {UNIQUE_CURATED_MOVIES.length} movies available
           </div>
         </div>
       )}

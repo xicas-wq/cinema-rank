@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Movie, Comparison } from '@/lib/types';
-import { selectNextPair } from '@/lib/bradley-terry';
+import { selectNextPair, getRankingProgress } from '@/lib/bradley-terry';
 import PosterImage from './PosterImage';
 
 interface CompareViewProps {
@@ -16,13 +16,20 @@ export default function CompareView({ movies, comparisons, onCompare, onUndo }: 
   const [pair, setPair] = useState<[Movie, Movie] | null>(null);
   const [animKey, setAnimKey] = useState(0);
   const [showWinner, setShowWinner] = useState<number | null>(null);
+  const [keepComparing, setKeepComparing] = useState(false);
+
+  const progress = getRankingProgress(movies, comparisons);
 
   const getNextPair = useCallback(() => {
-    const next = selectNextPair(movies, comparisons);
+    if (progress.done && !keepComparing) {
+      setPair(null);
+      return;
+    }
+    const next = selectNextPair(movies, comparisons, { preferSameGenre: true });
     setPair(next);
     setAnimKey(prev => prev + 1);
     setShowWinner(null);
-  }, [movies, comparisons]);
+  }, [movies, comparisons, progress.done, keepComparing]);
 
   useEffect(() => {
     getNextPair();
@@ -52,6 +59,7 @@ export default function CompareView({ movies, comparisons, onCompare, onUndo }: 
     );
   }
 
+  // Ranking complete state
   if (!pair) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
@@ -65,10 +73,16 @@ export default function CompareView({ movies, comparisons, onCompare, onUndo }: 
             <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-extrabold mb-3 text-white">All Compared!</h2>
-        <p className="text-[#9494b0] mb-8 text-base">You&apos;ve made enough comparisons. Check your rankings!</p>
-        <button onClick={getNextPair} className="px-8 py-3 rounded-xl bg-[#6d5cff] text-white font-semibold text-sm hover:bg-[#5d4ce6] active:scale-[0.97] transition-all shadow-lg shadow-[#6d5cff]/25">
-          Compare More
+        <h2 className="text-2xl font-extrabold mb-3 text-white">Ranking Complete!</h2>
+        <p className="text-[#9494b0] mb-2 text-base">
+          {progress.comparedPairs}/{progress.totalPairs} unique pairs compared
+        </p>
+        <p className="text-[#5e5e7a] mb-8 text-sm">Your rankings are ready. Check the Rankings tab!</p>
+        <button
+          onClick={() => { setKeepComparing(true); }}
+          className="px-8 py-3 rounded-xl bg-[#6d5cff] text-white font-semibold text-sm hover:bg-[#5d4ce6] active:scale-[0.97] transition-all shadow-lg shadow-[#6d5cff]/25"
+        >
+          Keep Comparing Anyway
         </button>
       </div>
     );
@@ -78,26 +92,41 @@ export default function CompareView({ movies, comparisons, onCompare, onUndo }: 
 
   return (
     <div className="space-y-8">
-      {/* Top bar: stats + actions */}
-      <div className="bg-[#1a1a2a] border border-[#2a2a40] rounded-2xl p-4 flex justify-between items-center shadow-lg shadow-black/20">
-        <div className="flex items-center gap-2.5 text-sm text-[#9494b0]">
-          <div className="w-2 h-2 rounded-full bg-[#6d5cff] animate-pulse" />
-          <span className="font-medium">{comparisons.length} comparison{comparisons.length !== 1 ? 's' : ''} made</span>
+      {/* Top bar: stats + progress + actions */}
+      <div className="bg-[#1a1a2a] border border-[#2a2a40] rounded-2xl p-4 shadow-lg shadow-black/20">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2.5 text-sm text-[#9494b0]">
+            <div className="w-2 h-2 rounded-full bg-[#6d5cff] animate-pulse" />
+            <span className="font-medium">{progress.comparedPairs}/{progress.totalPairs} pairs</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={onUndo}
+              disabled={comparisons.length === 0}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.06] border border-[#2a2a40] text-[#9494b0] hover:text-white hover:bg-white/[0.1] disabled:opacity-25 transition-all text-xs font-semibold"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+              Undo
+            </button>
+            <button onClick={getNextPair} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.06] border border-[#2a2a40] text-[#9494b0] hover:text-white hover:bg-white/[0.1] transition-all text-xs font-semibold">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/></svg>
+              Skip
+            </button>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={onUndo}
-            disabled={comparisons.length === 0}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.06] border border-[#2a2a40] text-[#9494b0] hover:text-white hover:bg-white/[0.1] disabled:opacity-25 transition-all text-xs font-semibold"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-            Undo
-          </button>
-          <button onClick={getNextPair} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.06] border border-[#2a2a40] text-[#9494b0] hover:text-white hover:bg-white/[0.1] transition-all text-xs font-semibold">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/></svg>
-            Skip
-          </button>
+        {/* Progress bar */}
+        <div className="w-full h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-500 ease-out"
+            style={{
+              width: `${Math.min(progress.progress * 100, 100)}%`,
+              background: progress.progress >= 1
+                ? 'linear-gradient(90deg, #22c584, #22c584)'
+                : 'linear-gradient(90deg, #6d5cff, #8b7fff)',
+            }}
+          />
         </div>
+        <p className="text-[10px] text-[#5e5e7a] mt-1.5 text-right">{progress.reason}</p>
       </div>
 
       {/* Question */}
