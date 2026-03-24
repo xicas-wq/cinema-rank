@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Movie } from '@/lib/types';
 import { UNIQUE_CURATED_MOVIES, MOVIE_CATEGORIES, searchCuratedMovies, getMoviesByCategory } from '@/lib/movie-database';
+import { searchMovies as searchTMDB } from '@/lib/tmdb';
 import PosterImage from './PosterImage';
 
 interface MovieSearchProps {
@@ -10,19 +11,50 @@ interface MovieSearchProps {
   existingMovieIds: Set<number>;
 }
 
+const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY || '';
+
 export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [searchSource, setSearchSource] = useState<'curated' | 'tmdb' | null>(null);
+  const [tmdbError, setTmdbError] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const search = useCallback(async () => {
     if (!query.trim()) return;
     setLoading(true);
     setSearched(true);
     setActiveCategory(null);
-    setResults(searchCuratedMovies(query.trim()));
+    setTmdbError(null);
+
+    // First search curated movies
+    const curatedResults = searchCuratedMovies(query.trim());
+
+    if (TMDB_API_KEY) {
+      // Also search TMDB for full database
+      try {
+        const tmdbResults = await searchTMDB(query.trim());
+        // Merge: curated first (they have our genre_ids), then TMDB results not in curated
+        const curatedIds = new Set(curatedResults.map(m => m.id));
+        const newTmdbResults = tmdbResults.filter(m => !curatedIds.has(m.id));
+        const merged = [...curatedResults, ...newTmdbResults];
+        setResults(merged);
+        setSearchSource(newTmdbResults.length > 0 ? 'tmdb' : 'curated');
+      } catch (err) {
+        // TMDB failed, fall back to curated only
+        console.error('TMDB search failed:', err);
+        setResults(curatedResults);
+        setSearchSource('curated');
+        setTmdbError('TMDB search unavailable, showing curated results only');
+      }
+    } else {
+      setResults(curatedResults);
+      setSearchSource('curated');
+    }
+
     setLoading(false);
   }, [query]);
 
@@ -30,6 +62,8 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
     setActiveCategory(category);
     setSearched(true);
     setQuery('');
+    setSearchSource('curated');
+    setTmdbError(null);
     setResults(getMoviesByCategory(category));
   }, []);
 
@@ -37,6 +71,8 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
     setActiveCategory('all');
     setSearched(true);
     setQuery('');
+    setSearchSource('curated');
+    setTmdbError(null);
     setResults([...UNIQUE_CURATED_MOVIES]);
   }, []);
 
@@ -69,7 +105,7 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && search()}
-              placeholder="Search movies..."
+              placeholder={TMDB_API_KEY ? "Search 900,000+ movies..." : "Search movies..."}
               className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-[#0e0e1a] border border-[#2a2a40] text-white placeholder-[#5e5e7a] focus:outline-none focus:border-[#6d5cff] focus:ring-2 focus:ring-[#6d5cff]/20 transition-all text-sm"
             />
           </div>
@@ -85,6 +121,12 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
             )}
           </button>
         </div>
+        {TMDB_API_KEY && (
+          <div className="flex items-center gap-1.5 mt-2.5 text-[10px] text-[#5e5e7a]">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#22c584]" />
+            Powered by TMDB — search any movie ever made
+          </div>
+        )}
       </div>
 
       {/* Category chips - horizontal scroll */}
@@ -116,11 +158,21 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
         </div>
       </div>
 
+      {/* TMDB error notice */}
+      {tmdbError && (
+        <div className="text-xs text-[#f5c542] bg-[#f5c542]/10 border border-[#f5c542]/20 rounded-lg px-4 py-2">
+          {tmdbError}
+        </div>
+      )}
+
       {/* Results header */}
       {searched && results.length > 0 && (
         <div className="flex justify-between items-center">
           <span className="text-sm text-[#9494b0] font-medium">
             {results.length} movie{results.length !== 1 ? 's' : ''} found
+            {searchSource === 'tmdb' && (
+              <span className="text-[#5e5e7a] ml-1.5">(via TMDB)</span>
+            )}
           </span>
           {addableCount > 0 && (
             <button
@@ -234,7 +286,7 @@ export default function MovieSearch({ onAddMovie, existingMovieIds }: MovieSearc
           </p>
           <div className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-[#1a1a2a] border border-[#2a2a40] text-sm text-[#5e5e7a]">
             <div className="w-2 h-2 rounded-full bg-[#22c584]" />
-            {UNIQUE_CURATED_MOVIES.length} movies available
+            {TMDB_API_KEY ? '900,000+ movies available via TMDB' : `${UNIQUE_CURATED_MOVIES.length} movies available`}
           </div>
         </div>
       )}
