@@ -75,7 +75,7 @@ export default function CompareView({ movies, comparisons, onCompare, onUndo }: 
         </div>
         <h2 className="text-2xl font-extrabold mb-3 text-white">Ranking Complete!</h2>
         <p className="text-[#9494b0] mb-2 text-base">
-          {progress.comparedPairs}/{progress.totalPairs} unique pairs compared
+          {progress.comparedPairs} comparisons done (target: {progress.target})
         </p>
         <p className="text-[#5e5e7a] mb-8 text-sm">Your rankings are ready. Check the Rankings tab!</p>
         <button
@@ -97,7 +97,7 @@ export default function CompareView({ movies, comparisons, onCompare, onUndo }: 
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2.5 text-sm text-[#9494b0]">
             <div className="w-2 h-2 rounded-full bg-[#6d5cff] animate-pulse" />
-            <span className="font-medium">{progress.comparedPairs}/{progress.totalPairs} pairs</span>
+            <span className="font-medium">{progress.comparedPairs}/{progress.target} comparisons</span>
           </div>
           <div className="flex gap-2">
             <button

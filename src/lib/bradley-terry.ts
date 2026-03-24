@@ -162,41 +162,41 @@ function getComparedPairs(comparisons: Comparison[]): Set<string> {
 
 /**
  * Check if ranking is complete enough to stop.
- * Returns { done: boolean, progress: number (0-1), reason: string }
+ *
+ * Uses an adaptive target based on list size:
+ * - Target = N * 2 comparisons (each movie gets ~4 comparisons on average)
+ * - This gives reliable Bradley-Terry rankings without exhausting the user
+ * - For 12 movies: ~24 comparisons (not 66!)
+ * - For 20 movies: ~40 comparisons (not 190!)
+ * - Users can always "Keep Comparing" for even more accuracy
  */
 export function getRankingProgress(
   movies: Movie[],
   comparisons: Comparison[]
-): { done: boolean; progress: number; reason: string; totalPairs: number; comparedPairs: number } {
+): { done: boolean; progress: number; reason: string; totalPairs: number; comparedPairs: number; target: number } {
   const n = movies.length;
-  if (n < 2) return { done: true, progress: 1, reason: 'Need at least 2 movies', totalPairs: 0, comparedPairs: 0 };
+  if (n < 2) return { done: true, progress: 1, reason: 'Need at least 2 movies', totalPairs: 0, comparedPairs: 0, target: 0 };
 
   const totalPairs = n * (n - 1) / 2;
+  const movieIds = new Set(movies.map(m => m.id));
   const comparedPairs = getComparedPairs(
-    comparisons.filter(c => {
-      const movieIds = new Set(movies.map(m => m.id));
-      return movieIds.has(c.winnerId) && movieIds.has(c.loserId);
-    })
+    comparisons.filter(c => movieIds.has(c.winnerId) && movieIds.has(c.loserId))
   ).size;
 
-  // For small lists (≤20 movies), we can compare all pairs
-  if (n <= 20) {
-    const progress = comparedPairs / totalPairs;
-    if (comparedPairs >= totalPairs) {
-      return { done: true, progress: 1, reason: 'All pairs compared!', totalPairs, comparedPairs };
-    }
-    return { done: false, progress, reason: `${comparedPairs}/${totalPairs} pairs compared`, totalPairs, comparedPairs };
-  }
-
-  // For larger lists, use N*log2(N) as target (enough for reliable ranking)
-  const target = Math.ceil(n * Math.log2(n) * 1.5);
+  // Adaptive target: N * 2 gives each movie ~4 comparisons on average
+  // Minimum of 3 for very small lists, capped at totalPairs
+  const target = Math.min(Math.max(n * 2, 3), totalPairs);
   const progress = Math.min(comparedPairs / target, 1);
 
-  if (comparedPairs >= target) {
-    return { done: true, progress: 1, reason: 'Ranking is reliable!', totalPairs, comparedPairs };
+  if (comparedPairs >= totalPairs) {
+    return { done: true, progress: 1, reason: 'All pairs compared!', totalPairs, comparedPairs, target };
   }
 
-  return { done: false, progress, reason: `${comparedPairs}/${target} comparisons for reliable ranking`, totalPairs, comparedPairs };
+  if (comparedPairs >= target) {
+    return { done: true, progress: 1, reason: 'Ranking is reliable!', totalPairs, comparedPairs, target };
+  }
+
+  return { done: false, progress, reason: `${comparedPairs}/${target} comparisons for reliable ranking`, totalPairs, comparedPairs, target };
 }
 
 /**
